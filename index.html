@@ -206,10 +206,18 @@ table.wk td:not(:first-child),table.wk th:not(:first-child){text-align:right}
 .hist .row{min-height:48px;border-top:1px solid var(--line)}
 .hist .row:first-child{border-top:0}
 
+/* Coach */
+.cnote{padding:12px 0 12px 14px;border-top:1px solid var(--line);position:relative}
+.cnote:first-child{border-top:0;padding-top:0}
+.cnote::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:2px;background:var(--accent)}
+.cnote:first-child::before{top:2px}
+.cnote b{display:block;font-size:15px}
+.cnote span{display:block;font-size:14.5px;color:var(--muted);margin-top:2px}
+
 /* Bottom nav */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
-.tabs button{min-height:62px;background:none;border:0;color:var(--muted);font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative}
+.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.tabs button{min-height:62px;background:none;border:0;color:var(--muted);font-size:11.5px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative}
 .tabs button[aria-selected=true]{color:var(--accent)}
 .tabs button[aria-selected=true]::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
 
@@ -279,6 +287,11 @@ const I = {
   workout: svg('<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>'),
   meals: svg('<path d="M3.5 11h17a8.5 8.5 0 0 1-17 0Z"/><path d="M8 7.5c0-1.5 1.2-2 1.2-3.5M12 7.5c0-1.5 1.2-2 1.2-3.5M16 7.5c0-1.5 1.2-2 1.2-3.5"/>'),
   progress: svg('<path d="M4 4v16h16"/><path d="m7.5 14.5 3.5-4 3 2.5 5-6.5"/>'),
+  coach: svg('<circle cx="12" cy="7.5" r="3.5"/><path d="M5 20.5a7 7 0 0 1 14 0"/><path d="m15.5 14.5 1.5 2 3-3.5"/>'),
+  sunny: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>'),
+  heart: svg('<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.6 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10Z"/>'),
+  pill: svg('<rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-35 12 12)"/><path d="m9.2 8 5.6 8"/>'),
+  target: svg('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8" fill="currentColor"/>'),
   check: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
   left: svg('<path d="m14.5 6-6 6 6 6"/>'),
   right: svg('<path d="m9.5 6 6 6-6 6"/>'),
@@ -321,9 +334,8 @@ const r1 = n => Math.round(n * 10) / 10;
 const signed = (n, unit) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${Math.abs(r1(n)).toFixed(1)}${unit ? ' ' + unit : ''}`;
 
 /* ---------- Plan data ---------- */
-const GOAL_KG = 85;
 const PLAN = {
-  0: { type: 'rest', label: 'Rest day', title: 'Rest, weigh-in & weekly review', act: 'Rested, weighed in & measured waist' },
+  0: { type: 'rest', label: 'Rest day', title: 'Rest, weigh-in & weekly review', act: 'Rested, weighed in & measured waist and chest' },
   1: { type: 'gym', label: 'Gym day', title: 'Workout A + incline walk', act: "Did today's workout + incline walk" },
   2: { type: 'walk', label: 'Walk day', title: 'Easy walk, 30–40 min', act: 'Did an easy 30–40 min walk' },
   3: { type: 'gym', label: 'Gym day', title: 'Workout A + incline walk', act: "Did today's workout + incline walk" },
@@ -331,7 +343,21 @@ const PLAN = {
   5: { type: 'gym', label: 'Gym day', title: 'Workout A + incline walk', act: "Did today's workout + incline walk" },
   6: { type: 'walk', label: 'Walk day', title: 'Long walk, 45 min', act: 'Did a 45 min long walk' }
 };
-const planFor = k => PLAN[dowOf(k)];
+const planFor = k => {
+  const p = PLAN[dowOf(k)];
+  return p.type === 'gym' ? { ...p, title: `Workout ${workoutLetter(k)} + incline walk` } : p;
+};
+/* Gym days rotate A-B-A one week, B-A-B the next, so each workout gets 3 sessions per fortnight. */
+const EPOCH_MONDAY = '2024-01-01';
+function nextGymDay(k) { for (let i = 1; i <= 7; i++) { const n = addDays(k, i); if (PLAN[dowOf(n)].type === 'gym') return n; } return k; }
+function workoutLetter(k) {
+  const d = S.days[k];
+  if (d && d.wt) return d.wt;
+  const g = PLAN[dowOf(k)].type === 'gym' ? k : nextGymDay(k);
+  const week = Math.floor(diffDays(EPOCH_MONDAY, g) / 7);
+  const pos = [1, 3, 5].indexOf(dowOf(g));
+  return (week + pos) % 2 === 0 ? 'A' : 'B';
+}
 const checksFor = k => [
   ['weigh', 'Weighed myself on waking', 'Before food or water, after the toilet'],
   ['meals', 'Ate within plan', 'Protein at every meal'],
@@ -341,7 +367,8 @@ const checksFor = k => [
   ['activity', planFor(k).act, planFor(k).type === 'rest' ? 'Sunday check-in' : planFor(k).title]
 ];
 
-const EX = [
+const WORKOUTS = {};
+WORKOUTS.A = [
   { id: 'legpress', name: 'Leg press', sets: 3, reps: '10–12', unit: 'reps',
     cue: 'Back flat on the pad. Push through your heels and stop just short of locking your knees.',
     q: 'leg press machine proper form for beginners' },
@@ -361,6 +388,29 @@ const EX = [
     cue: 'Elbows under shoulders, body in one straight line from head to heels. No sagging or raised hips.',
     q: 'how to do a plank correctly for beginners' }
 ];
+WORKOUTS.B = [
+  { id: 'goblet', name: 'Goblet squat', sets: 3, reps: '10–12', unit: 'reps', step: 'use the next dumbbell up (usually 2–2.5 kg heavier)',
+    cue: 'Hold one dumbbell upright against your chest. Feet shoulder-width, sit down between your heels with your chest up and knees following your toes. Log the dumbbell weight.',
+    q: 'goblet squat proper form for beginners' },
+  { id: 'inclinedb', name: 'Incline dumbbell press', sets: 3, reps: '10–12', unit: 'reps', perDb: true,
+    cue: 'Bench at about 30°. Lower the dumbbells to the sides of your upper chest, elbows at about 45°, then press up. Building the upper chest makes it look firmer as the fat comes off.',
+    q: 'incline dumbbell press proper form for beginners' },
+  { id: 'dbrow', name: 'One-arm dumbbell row', sets: 3, reps: '10–12 each side', unit: 'reps', perDb: true,
+    cue: 'One knee and hand on the bench, back flat. Pull the dumbbell to your hip, not your chest, and lower it slowly. Finish one side, then switch.',
+    q: 'one arm dumbbell row proper form for beginners' },
+  { id: 'pecfly', name: 'Pec deck or cable fly', sets: 2, reps: '12–15', unit: 'reps', step: 'add one weight step (the next pin)',
+    cue: 'Chest up, slight bend in the elbows. Bring the handles together in front of your chest, squeeze for a second, and open slowly. Keep it light.',
+    q: 'pec deck machine fly proper form for beginners' },
+  { id: 'dbrdl', name: 'Dumbbell Romanian deadlift', sets: 3, reps: '10–12', unit: 'reps', perDb: true,
+    cue: 'Soft knees. Push your hips back and slide the dumbbells down your thighs with a flat back. Stop at a hamstring stretch, then stand tall.',
+    q: 'dumbbell romanian deadlift proper form for beginners' },
+  { id: 'deadbug', name: 'Dead bug', sets: 3, reps: '8–10 each side', unit: 'reps', noWeight: true,
+    cue: 'Lie on your back, arms up, knees bent at 90°. Press your lower back into the floor and slowly lower the opposite arm and leg. Breathe out as you lower.',
+    q: 'dead bug exercise proper form' }
+];
+const ALL_EX = [...WORKOUTS.A, ...WORKOUTS.B];
+const exById = id => ALL_EX.find(x => x.id === id);
+const exFor = k => WORKOUTS[workoutLetter(k)];
 
 const MEALS = [
   { id: 'm1', time: '3:30 PM', title: 'Wake-up meal', items: '3-egg omelette, 1 roti, 1 banana, tea with no sugar', kcal: 420, p: 23 },
@@ -371,8 +421,38 @@ const MEALS = [
   { id: 'm6', time: '6:30 AM', title: 'Before sleep', items: '1 bowl daal, 1 roti', kcal: 300, p: 15 },
   { id: 'whey', time: 'Optional', title: 'Whey shake', items: '1 scoop whey in water', kcal: 120, p: 24, gymOnly: true }
 ];
-const PROTEIN_TARGET = 130;
-const kcalTarget = k => planFor(k).type === 'gym' ? 1850 : 1700;
+/* ---------- Coach maths (Mifflin-St Jeor, male) ---------- */
+const DEFAULT_PROFILE = { dob: '2000-02-15', heightCm: 183, startKg: 99, goalKg: 85, adj: 0, adjLog: [] };
+const ACTIVITY = 1.45;
+const DEFICIT = 1050;
+const round50 = n => Math.round(n / 50) * 50;
+function ageOn(k) {
+  const b = parseKey(S.profile.dob), d = parseKey(k);
+  let a = d.getFullYear() - b.getFullYear();
+  if (d.getMonth() < b.getMonth() || (d.getMonth() === b.getMonth() && d.getDate() < b.getDate())) a--;
+  return a;
+}
+function nextBirthday(k) {
+  const b = parseKey(S.profile.dob), d = parseKey(k);
+  let n = new Date(d.getFullYear(), b.getMonth(), b.getDate());
+  if (n <= d) n = new Date(d.getFullYear() + 1, b.getMonth(), b.getDate());
+  return keyOf(n);
+}
+function currentKg(k = todayKey()) {
+  const ws = sortedBy(S.weights).filter(w => w.d <= k).slice(-7);
+  return ws.length ? avg(ws.map(w => w.kg)) : S.profile.startKg;
+}
+function energy(k = view) {
+  const p = S.profile, kg = currentKg(k), age = ageOn(k);
+  const bmr = 10 * kg + 6.25 * p.heightCm - 5 * age + 5;
+  const tdee = bmr * ACTIVITY;
+  const gym = Math.min(2600, Math.max(1700, round50(tdee - DEFICIT) + (p.adj || 0)));
+  const rest = Math.max(1600, gym - 150);
+  return { kg, age, bmr, tdee, gym, rest };
+}
+const kcalTarget = k => planFor(k).type === 'gym' ? energy(k).gym : energy(k).rest;
+const goalKg = () => S.profile.goalKg;
+const proteinRange = () => { const lo = Math.round(goalKg() * 1.55 / 5) * 5; return [lo, lo + 10]; };
 
 const SWAPS = [
   ['Chicken or egg curry day', 'Take the meat pieces or 2–3 eggs, leave most of the gravy and oil in the pot. 2 rotis, salad.'],
@@ -398,15 +478,80 @@ const KIT = [
   ['Oats', '40 g is about 150 kcal, 5 g protein. Make with water or milk']
 ];
 
+const TIPS = [
+  'Belly fat can’t be spot-reduced. Crunches won’t burn it; the calorie deficit and daily steps will. It is usually the last place to go, so trust the waist tape over the mirror.',
+  'At your weight, most chest fat is fat, not gland. It shrinks as overall body fat drops, and chest presses build the muscle underneath so the chest looks firmer.',
+  'Losing fat is the biggest natural testosterone boost you have. Belly fat turns testosterone into estrogen, so every kilo off helps your hormones too.',
+  'Get 15–20 minutes of sun after you wake up at 3 PM. Night-shift workers are often low in vitamin D, which is linked to low testosterone.',
+  'Don’t cut dietary fat too low. Eggs, a little oil in the salan and a small handful of peanuts give your hormones what they need. Aim for at least 60 g of fat a day.',
+  'Skip “testosterone booster” pills and fat burners: mostly caffeine and marketing. Steroids and SARMs can cause permanent gland growth in the chest.',
+  'Sugary chai, cold drinks and mithai go straight to the belly. Tea without sugar is fine; the taste adjusts in about two weeks.',
+  'Smoking and sheesha lower testosterone and slow recovery. If you smoke, cutting down helps more than any supplement.',
+  'Stress hormone cortisol drives belly fat. Steady sleep times, even on days off, and a short walk after waking keep it in check.',
+  'When every set feels easy, add weight. Getting stronger while dieting is the signal that makes your body keep muscle and burn fat instead.',
+  'Weigh in daily, judge weekly. One salty mess dinner can add a kilo of water overnight; the weekly average tells the truth.',
+  'Rows and pulldowns pull your shoulders back. Better posture alone makes the chest and belly look smaller.',
+  'Your 1 month of training before still counts. Muscle memory means strength comes back faster than the first time, so expect quick progress in weeks 1–4.',
+  'Protein at every meal keeps you full on fewer calories and protects muscle. Eggs, dahi, chicken, daal and chana are all on your menu for a reason.'
+];
+
+const HABITS = [
+  ['sun', '15–20 min of sunlight after waking', 'Vitamin D, linked to testosterone'],
+  ['nosugar', 'No sugary drinks or sweets', 'Chai without sugar, no cold drinks or mithai'],
+  ['dark', 'Slept in a dark, cool room', 'Eye mask or blackout curtain, phone away'],
+  ['nosmoke', 'No smoking or sheesha', 'Both lower testosterone']
+];
+
+const FOCUS = [
+  { icon: 'target', title: 'Belly fat', points: [
+      'Spot reduction is a myth: no exercise burns belly fat directly. The calorie deficit, 8,000–10,000 steps and strength training burn fat everywhere, and the belly follows.',
+      'The belly is usually the first place fat goes on and the last place it comes off. Expect visible change after 4–6 weeks; the waist tape shows it before the mirror does.',
+      'Sugar, sweet chai, cold drinks and late-night snacking on the shift are the biggest belly-fat drivers in your routine.',
+      'Sleep and stress matter: short sleep raises cortisol and hunger, which pushes fat toward the belly.',
+      'Core work (plank, dead bug) strengthens the muscles under the fat and helps posture, but it doesn’t burn the fat on top.'
+    ], track: 'Track: waist at the belly button every Sunday. Losing 1 cm a week or two is a great result.' },
+  { icon: 'heart', title: 'Chest fat (man boobs)', points: [
+      'At 99 kg this is almost always fat (called pseudogynecomastia). It goes down as total body fat drops, and is usually much better by 85–88 kg.',
+      'Train the chest twice a week: chest press in Workout A, incline dumbbell press and pec fly in Workout B. Muscle underneath makes the area firmer and flatter.',
+      'Rows and pulldowns pull the shoulders back so the chest doesn’t sag forward.',
+      'Avoid anything that raises estrogen: anabolic steroids, SARMs, “prohormone” supplements and heavy alcohol.',
+      'True gynecomastia (gland tissue) feels like a firm, rubbery disc right under the nipple. That doesn’t fully go with fat loss. See a doctor if you feel that, or if there is pain, one side growing fast, or any discharge.'
+    ], track: 'Track: chest at nipple level every Sunday, plus front and side photos in the same light.' },
+  { icon: 'fire', title: 'Testosterone', points: [
+      'Lose the belly fat: fat tissue converts testosterone into estrogen. Losing 10–15% of body weight is one of the most reliable natural boosts.',
+      'Sleep 7–9 hours. Testosterone is made mostly during sleep; one week of 5-hour nights can drop it noticeably. On night shifts, make your daytime sleep dark and consistent.',
+      'Lift weights 3 times a week with compound moves (leg press, squat, rows, presses). Keep getting stronger.',
+      'Eat enough: don’t go below about 1,700 kcal, keep protein high and get at least 60 g of fat a day from eggs, dahi, chicken and a little oil or peanuts.',
+      'Sunlight or vitamin D, zinc foods (eggs, chicken, chana, peanuts, daal) and magnesium foods (daal, oats, bananas) cover most of what boosters claim to do.',
+      'Limit alcohol, stop smoking, and manage stress. Skip “T-booster” pills; they don’t work better than the basics.'
+    ], track: 'Signs it’s improving: better morning energy, mood, libido and gym strength. For real numbers, get a blood test (see below).' }
+];
+
+const SUPPS = [
+  ['Worth it', 'Whey protein: an easy way to reach your protein target on gym days. Not magic, just food.'],
+  ['Optional', 'Creatine monohydrate, 3–5 g a day with water: well studied, helps strength. Expect 1–2 kg of water weight on the scale in the first weeks, which is not fat.'],
+  ['Test first', 'Vitamin D3: very common to be low on night shifts. Get a blood test and let a doctor set the dose.'],
+  ['Skip', 'Testosterone boosters, fat burners, “cutting” pills, steroids and SARMs. Wasted money at best, and steroids/SARMs can cause permanent chest gland growth.']
+];
+
+const DOCTOR = [
+  'A firm, rubbery lump right under one or both nipples, pain or tenderness, one side growing quickly, or any nipple discharge.',
+  'Constant tiredness, very low libido or erection problems that don’t improve as you lose weight and sleep better.',
+  'Dizziness, fainting or heart palpitations while dieting or training.',
+  'Ask for: total testosterone (taken within 3 hours of waking from your main sleep; tell the lab you work nights), estradiol, prolactin, TSH, vitamin D and HbA1c.'
+];
+
 /* ---------- State ---------- */
 const KEY = 'w1flt.v1';
-const fresh = () => ({ v: 1, start: todayKey(), days: {}, weights: [], waists: [], settings: { theme: 'auto', rest: 90, tab: 'today' } });
+const fresh = () => ({ v: 1, start: todayKey(), days: {}, weights: [], waists: [], chests: [],
+  profile: { ...DEFAULT_PROFILE, adjLog: [] }, settings: { theme: 'auto', rest: 90, tab: 'today' } });
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
     if (s && s.v === 1) {
       s.settings = Object.assign({ theme: 'auto', rest: 90, tab: 'today' }, s.settings);
-      s.days = s.days || {}; s.weights = s.weights || []; s.waists = s.waists || [];
+      s.profile = Object.assign({ ...DEFAULT_PROFILE, adjLog: [] }, s.profile);
+      s.days = s.days || {}; s.weights = s.weights || []; s.waists = s.waists || []; s.chests = s.chests || [];
       s.start = s.start || todayKey();
       return s;
     }
@@ -425,7 +570,7 @@ let installPrompt = null;
 
 function day(k = view) {
   const d = S.days[k] || (S.days[k] = {});
-  d.c = d.c || {}; d.meals = d.meals || {}; d.extra = d.extra || []; d.wo = d.wo || {}; d.x = d.x || {};
+  d.c = d.c || {}; d.meals = d.meals || {}; d.extra = d.extra || []; d.wo = d.wo || {}; d.x = d.x || {}; d.h = d.h || {};
   if (typeof d.water !== 'number') d.water = 0;
   if (d.steps == null) d.steps = '';
   return d;
@@ -448,10 +593,12 @@ function lastFor(k, ex) {
   return null;
 }
 const requiredSets = (ex, first) => first ? Math.min(2, ex.sets) : ex.sets;
+const isFirstOfWorkout = (k, list) => !Object.keys(S.days).some(x => x < k && S.days[x].wo &&
+  list.some(ex => S.days[x].wo[ex.id] && S.days[x].wo[ex.id].s.some(s => s.d)));
 function setCounts(k) {
   const first = isFirstSession(k);
   let done = 0, total = 0;
-  EX.forEach(ex => {
+  exFor(k).forEach(ex => {
     const r = exRec(k, ex), n = requiredSets(ex, first);
     total += n;
     done += r.s.slice(0, n).filter(s => s.d).length;
@@ -498,7 +645,7 @@ function applyTheme() {
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
 
 /* ---------- Header & tabs ---------- */
-const TABS = [['today', 'Today'], ['workout', 'Workout'], ['meals', 'Meals'], ['progress', 'Progress']];
+const TABS = [['today', 'Today'], ['coach', 'Coach'], ['workout', 'Workout'], ['meals', 'Meals'], ['progress', 'Progress']];
 function renderChrome() {
   const t = todayKey(), isToday = view === t;
   const idx = diffDays(S.start, view);
@@ -514,7 +661,8 @@ function renderChrome() {
 function render() {
   renderChrome();
   const tab = S.settings.tab;
-  const html = tab === 'workout' ? viewWorkout() : tab === 'meals' ? viewMeals() : tab === 'progress' ? viewProgress() : viewToday();
+  const views = { today: viewToday, coach: viewCoach, workout: viewWorkout, meals: viewMeals, progress: viewProgress };
+  const html = (views[tab] || viewToday)();
   main.innerHTML = `<div class="view">${html}</div>`;
 }
 
@@ -538,12 +686,7 @@ function viewToday() {
       ${DOW[dowOf(k)].slice(0, 2)}<i class="dot ${pl.type}"></i></button>`;
   }).join('');
   const water = d.water, steps = +d.steps || 0;
-  const tip = p.type === 'gym'
-    ? `<b>Suggested timing:</b> eat the 5:00 PM chana, train around 5:30–7:00 PM, then your main meal at 7:30 PM before the shift.`
-    : p.type === 'walk'
-      ? `<b>Easy pace:</b> you should be able to talk in full sentences. Split it up if needed: 20 min before the shift plus walking during breaks.`
-      : `<b>Sunday check-in:</b> weigh in on waking, measure your waist at the belly button, then open Progress for the weekly review.
-         <div style="margin-top:8px"><button class="btn sm primary" data-act="goTab" data-tab="progress">Open Progress</button></div>`;
+  const notes = coachNotes(view).slice(0, 2);
 
   return `
   <section class="card">
@@ -560,6 +703,12 @@ function viewToday() {
     </div>
     <div class="week">${weekBtns}</div>
     <div class="legend"><span><i class="dot gym"></i>Gym</span><span><i class="dot"></i>Walk</span><span><i class="dot rest"></i>Rest</span></div>
+  </section>
+
+  <h2 class="sec">Coach says</h2>
+  <section class="card coach-card">
+    ${notes.map(noteHtml).join('')}
+    <button class="btn block" style="margin-top:12px" data-act="goTab" data-tab="coach">${I.coach}Open your coach</button>
   </section>
 
   <h2 class="sec">Daily checklist</h2>
@@ -586,7 +735,6 @@ function viewToday() {
     <div class="kv muted"><span id="stepsTxt">${steps >= 8000 ? 'Step goal hit' : `${num(Math.max(0, 8000 - steps))} to 8,000`}</span><span>10,000</span></div>
   </section>
 
-  <div class="note">${tip}</div>
   <p class="tiny muted" style="margin:14px 4px 0">Your day runs from noon to noon, so meals after midnight and the 6:30 AM meal count toward the same day as that afternoon.</p>`;
 }
 function refreshTodayLive() {
@@ -602,7 +750,7 @@ function refreshTodayLive() {
 /* ---------- WORKOUT ---------- */
 function describeSets(ex, r) {
   const done = r.s.filter(s => s.d);
-  if (ex.noWeight) return done.map(s => s.r ? `${s.r} s` : '✓').join(', ');
+  if (ex.noWeight) return done.map(s => s.r ? `${s.r}${ex.unit === 'sec' ? ' s' : ' reps'}` : '✓').join(', ');
   const kg = ex.perDb ? 'kg each' : 'kg';
   const ws = [...new Set(done.map(s => s.w).filter(Boolean))];
   if (ws.length === 1) return `${ws[0]} ${kg} × ${done.map(s => s.r || '?').join(', ')}`;
@@ -615,13 +763,14 @@ function exCard(ex, i, first) {
     const ls = last && last.r.s[j];
     const wIn = ex.noWeight ? `<div class="na">Body weight</div>` :
       `<label class="inp"><input class="field" type="number" inputmode="decimal" step="0.5" min="0" data-setw="${ex.id}:${j}" value="${esc(s.w)}" placeholder="${ls && ls.w ? esc(ls.w) : '0'}" aria-label="${esc(ex.name)} set ${j + 1} weight${ex.perDb ? ' per dumbbell' : ''}"><span>${ex.perDb ? 'kg ea' : 'kg'}</span></label>`;
-    const rIn = `<label class="inp"><input class="field" type="number" inputmode="numeric" min="0" data-setr="${ex.id}:${j}" value="${esc(s.r)}" placeholder="${ex.unit === 'sec' ? '20–30' : '10–12'}" aria-label="${esc(ex.name)} set ${j + 1} ${ex.unit}"><span>${ex.unit}</span></label>`;
+    const rIn = `<label class="inp"><input class="field" type="number" inputmode="numeric" min="0" data-setr="${ex.id}:${j}" value="${esc(s.r)}" placeholder="${ex.reps.split(' ')[0]}" aria-label="${esc(ex.name)} set ${j + 1} ${ex.unit}"><span>${ex.unit}</span></label>`;
     return `<div class="setrow ${s.d ? 'done' : ''} ${opt ? 'opt' : ''}">
       ${checkbox(`data-set="${ex.id}:${j}" aria-label="${esc(ex.name)} set ${j + 1} done"`, s.d, `Set ${j + 1}`, opt ? 'Skip on day 1' : '')}
       ${wIn}${rIn}</div>`;
   }).join('');
 
-  const step = ex.noWeight ? 'add 5–10 seconds per set'
+  const step = ex.step ? ex.step
+    : ex.noWeight ? (ex.unit === 'sec' ? 'add 5–10 seconds per set' : 'add 2 reps per set')
     : ex.perDb ? 'move up to the next dumbbell (usually 1–2.5 kg more per hand)'
     : 'add one weight step (the next pin, usually 2.5–5 kg)';
   const hint = last && last.r.easy
@@ -644,25 +793,33 @@ function exCard(ex, i, first) {
     </div>
   </section>`;
 }
-function nextGymDay(k) { for (let i = 1; i <= 7; i++) { const n = addDays(k, i); if (planFor(n).type === 'gym') return n; } return k; }
 function viewWorkout() {
   const p = planFor(view), d = day(), { done, total, first } = setCounts(view);
-  const rest = S.settings.rest;
+  const rest = S.settings.rest, letter = workoutLetter(view), list = WORKOUTS[letter];
+  const firstOfThis = !first && isFirstOfWorkout(view, list);
+  const focus = letter === 'A' ? 'Machines: legs, chest, back, shoulders, core' : 'Dumbbells: legs, upper chest, back, hamstrings, core';
+  const picker = `<div class="seg" style="margin-top:12px" role="group" aria-label="Choose workout">
+      ${['A', 'B'].map(l => `<button data-act="setWt" data-v="${l}" aria-pressed="${letter === l}">Workout ${l}</button>`).join('')}
+    </div>`;
   const top = p.type === 'gym'
     ? `<section class="card">
-        <div class="row"><span class="pill">${I.workout}Workout A</span><span class="grow"></span><span class="muted small" id="woProg">${done}/${total} sets</span></div>
-        <h3 style="margin-top:8px">Mon · Wed · Fri</h3>
+        <div class="row"><span class="pill">${I.workout}Workout ${letter}</span><span class="grow"></span><span class="muted small" id="woProg">${done}/${total} sets</span></div>
+        <h3 style="margin-top:8px">${focus}</h3>
+        <div class="tiny muted">Mon · Wed · Fri, alternating A and B each session</div>
         <div class="meter"><span id="woBar" style="width:${total ? done / total * 100 : 0}%"></span></div>
+        ${picker}
       </section>`
     : `<section class="card">
         <span class="pill neutral">${p.type === 'walk' ? I.walk : I.scale}${p.label}</span>
         <h3 style="margin-top:8px">${p.title}</h3>
-        ${checkbox('data-check="activity"', d.c.activity, esc(p.act), p.type === 'walk' ? 'Easy pace, you can talk in full sentences' : 'No gym today, recovery matters')}
-        <p class="small muted" style="margin:6px 0 0">Next Workout A: <b>${fmtShort(nextGymDay(view))}</b>. You can still log a session below if you moved days.</p>
+        ${checkbox('data-check="activity"', d.c.activity, esc(p.act), p.type === 'walk' ? 'Easy pace, you can talk in full sentences' : 'No gym today, recovery matters', 'plain')}
+        <p class="small muted" style="margin:6px 0 0">Next session: <b>Workout ${workoutLetter(nextGymDay(view))}</b> on <b>${fmtShort(nextGymDay(view))}</b>. You can still log a session below if you moved days.</p>
+        ${picker}
       </section>`;
 
   return `${top}
-    ${first ? `<div class="note" style="margin:0 0 12px"><b>Day 1:</b> do only 2 sets of each exercise and use light weights. Today is about learning the machines and seat settings. Ask a trainer to check your setup.</div>` : ''}
+    ${first ? `<div class="note" style="margin:0 0 12px"><b>First session back:</b> do only 2 sets of each exercise with light weights. You trained for a month before, so the movements will come back quickly. Expect to add weight fast over the first 3–4 weeks. Ask a trainer to check your seat settings.</div>` : ''}
+    ${firstOfThis ? `<div class="note" style="margin:0 0 12px"><b>First time on Workout ${letter}:</b> pick weights you could lift 15 times, and watch the tutorial for any move you haven’t done before.</div>` : ''}
 
     <section class="card">
       <div class="row">${I.timer}<div class="grow"><b>Rest timer</b><div class="tiny muted">Starts when you tick a set</div></div></div>
@@ -676,8 +833,8 @@ function viewWorkout() {
       ${checkbox('data-x="warm"', d.x.warm, '5–10 min easy cardio', 'Treadmill walk or cycle, easy pace')}
     </section>
 
-    <h2 class="sec">Workout A</h2>
-    ${EX.map((ex, i) => exCard(ex, i, first)).join('')}
+    <h2 class="sec">Workout ${letter}</h2>
+    ${list.map((ex, i) => exCard(ex, i, first)).join('')}
 
     <h2 class="sec">Finisher</h2>
     <section class="card" style="padding-top:6px;padding-bottom:6px">
@@ -698,18 +855,20 @@ function viewMeals() {
   const { kcal, p: prot } = mealTotals(view);
   const kt = kcalTarget(view);
   const kcalLeft = kt - kcal;
+  const [plo, phi] = proteinRange();
   return `
   <section class="card">
     <div class="row"><span class="pill ${gym ? '' : 'neutral'}">${gym ? I.workout : I.walk}${gym ? 'Gym-day menu' : 'Rest-day menu'}</span></div>
     <div class="kv" style="margin-top:12px;font-size:15px"><b>Calories</b><span><b>${num(kcal)}</b> / ${num(kt)} kcal</span></div>
     <div class="meter"><span style="width:${Math.min(100, kcal / kt * 100)}%"></span></div>
     <div class="tiny muted" style="margin-top:4px">${kcalLeft >= 0 ? `${num(kcalLeft)} kcal left` : `${num(-kcalLeft)} kcal over target`}</div>
-    <div class="kv" style="margin-top:12px;font-size:15px"><b>Protein</b><span><b>${prot}</b> / ${PROTEIN_TARGET}–140 g</span></div>
-    <div class="meter"><span style="width:${Math.min(100, prot / PROTEIN_TARGET * 100)}%"></span></div>
-    <div class="tiny muted" style="margin-top:4px">${prot >= PROTEIN_TARGET ? 'Protein target hit' : `${PROTEIN_TARGET - prot} g to go`}</div>
+    <div class="kv" style="margin-top:12px;font-size:15px"><b>Protein</b><span><b>${prot}</b> / ${plo}–${phi} g</span></div>
+    <div class="meter"><span style="width:${Math.min(100, prot / plo * 100)}%"></span></div>
+    <div class="tiny muted" style="margin-top:4px">${prot >= plo ? 'Protein target hit' : `${plo - prot} g to go`}</div>
     <p class="small muted" style="margin:12px 0 0">${gym
       ? 'Full plan: about 1,800 kcal / 110 g protein, or about 1,920 kcal / 135 g with the whey shake.'
-      : 'Rest day: skip the pre-gym chana and the whey (about 1,700 kcal).'}</p>
+      : 'Rest day: skip the pre-gym chana and the whey (about 1,700 kcal).'}
+      The menu has about 60–65 g of fat, which is what your hormones need. Don’t trim it further.</p>
   </section>
 
   <h2 class="sec">Meals · tick when eaten</h2>
@@ -802,13 +961,39 @@ function review() {
   const v = loss < 0.3 ? 'cut' : loss < 0.5 ? 'close' : loss <= 1.2 ? 'keep' : 'add';
   return { locked: false, loss, basis, v };
 }
+const MEAS = {
+  waist: { arr: 'waists', label: 'Waist', where: 'Measure at the belly button, relaxed, after breathing out. Sundays are enough.' },
+  chest: { arr: 'chests', label: 'Chest', where: 'Measure around the chest at nipple level, arms relaxed, after breathing out. This tracks chest fat.' }
+};
+function measureCard(m) {
+  const cfg = MEAS[m], list = sortedBy(S[cfg.arr]);
+  return `<h2 class="sec">${cfg.label}</h2>
+  <section class="card">
+    <div class="small muted">${cfg.where}</div>
+    <div class="form dated" style="margin-top:12px">
+      <label><span>Date</span><input class="field" id="m-${m}-date" type="date" max="${todayKey()}" value="${view}"></label>
+      <label><span>${cfg.label} (cm)</span><input class="field" id="m-${m}-cm" type="number" inputmode="decimal" step="0.5" min="40" max="200" placeholder="${list.length ? list[list.length - 1].cm : 'cm'}"></label>
+      <button class="btn primary" data-act="addMeas" data-m="${m}" style="height:48px">Save</button>
+    </div>
+    ${chart(list.map(w => ({ d: w.d, v: w.cm })), { unit: 'cm' })}
+    ${list.length > 1 ? `<p class="small" style="margin:10px 0 0">Change since start: <b>${signed(list[list.length - 1].cm - list[0].cm, 'cm')}</b></p>` : ''}
+  </section>`;
+}
+const weekIdx = (k = todayKey()) => Math.floor(diffDays(S.start, k) / 7);
 function viewProgress() {
-  const ws = sortedBy(S.weights), wa = sortedBy(S.waists);
+  const ws = sortedBy(S.weights);
   const first = ws[0], latest = ws[ws.length - 1];
   const wk = weeklyAverages();
   const rv = review();
   const maxDate = todayKey();
+  const GOAL_KG = goalKg();
   const rule = (id, tag, text) => `<div class="rule ${rv.v === id ? 'hit' : ''}"><div><span class="tag">${tag}</span><div class="small muted">${text}</div></div></div>`;
+  const applied = S.profile.adjLog.some(a => a.week === weekIdx());
+  const applyBtn = (rv.v === 'cut' || rv.v === 'add')
+    ? (applied
+      ? `<p class="small muted" style="margin:10px 0 0">You already adjusted your targets this week. Check again next Sunday.</p>`
+      : `<button class="btn primary block" style="margin-top:10px" data-act="applyAdj" data-v="${rv.v === 'cut' ? -150 : 150}">Apply ${rv.v === 'cut' ? '−' : '+'}150 kcal to my daily targets</button>`)
+    : '';
 
   const reviewHtml = rv.locked
     ? `<p class="small muted" style="margin:6px 0 0">The weekly review unlocks after your first 7 days, on <b>${fmtShort(rv.unlock)}</b>. Keep weighing in every morning until then.</p>`
@@ -817,6 +1002,7 @@ function viewProgress() {
        ${rule('keep', 'Lost 0.5–1 kg → keep the plan', 'You are on track. Change nothing.')}
        ${rule('cut', 'Lost under 0.3 kg → cut about 150 kcal', 'For example 1 roti less at the 7:30 PM meal. Also check your steps are really 8,000+.')}
        ${rule('add', 'Lost over 1.2 kg, or dizzy → add about 150 kcal', 'For example the whey shake or 1 extra roti. Losing too fast costs muscle. Dizziness is a sign to eat more, whatever the scale says.')}
+       ${applyBtn}
        <p class="tiny muted" style="margin:10px 0 0">Compare weekly averages, not single days. Daily weight swings 0.5–1.5 kg with water and salt, and week 1 is often a bigger drop from water.</p>`;
 
   return `
@@ -833,7 +1019,7 @@ function viewProgress() {
       <div class="stat"><span>Start</span><b>${first ? first.kg.toFixed(1) + ' kg' : '–'}</b></div>
       <div class="stat"><span>Latest</span><b>${latest ? latest.kg.toFixed(1) + ' kg' : '–'}</b></div>
       <div class="stat"><span>Change since start</span><b>${ws.length > 1 ? signed(latest.kg - first.kg, 'kg') : '–'}</b></div>
-      <div class="stat"><span>To goal (85 kg)</span><b>${latest ? (latest.kg > GOAL_KG ? r1(latest.kg - GOAL_KG).toFixed(1) + ' kg' : 'Reached') : '–'}</b></div>
+      <div class="stat"><span>To goal (${GOAL_KG} kg)</span><b>${latest ? (latest.kg > GOAL_KG ? r1(latest.kg - GOAL_KG).toFixed(1) + ' kg' : 'Reached') : '–'}</b></div>
     </div>
     ${latest && latest.kg > GOAL_KG ? `<p class="tiny muted" style="margin:10px 0 0">At about 1 kg per week that is roughly ${Math.ceil(latest.kg - GOAL_KG)} more weeks.</p>` : ''}
   </section>
@@ -848,22 +1034,14 @@ function viewProgress() {
   <h2 class="sec">Weekly review</h2>
   <section class="card">${reviewHtml}</section>
 
-  <h2 class="sec">Waist</h2>
-  <section class="card">
-    <div class="small muted">Measure at the belly button, relaxed, after breathing out. Sundays are enough.</div>
-    <div class="form dated" style="margin-top:12px">
-      <label><span>Date</span><input class="field" id="cDate" type="date" max="${maxDate}" value="${view}"></label>
-      <label><span>Waist (cm)</span><input class="field" id="cCm" type="number" inputmode="decimal" step="0.5" min="40" max="200" placeholder="${wa.length ? wa[wa.length - 1].cm : 'cm'}"></label>
-      <button class="btn primary" data-act="addWaist" style="height:48px">Save</button>
-    </div>
-    ${chart(wa.map(w => ({ d: w.d, v: w.cm })), { unit: 'cm' })}
-    ${wa.length > 1 ? `<p class="small" style="margin:10px 0 0">Change since start: <b>${signed(wa[wa.length - 1].cm - wa[0].cm, 'cm')}</b></p>` : ''}
-  </section>
+  ${measureCard('waist')}
+  ${measureCard('chest')}
+  <p class="tiny muted" style="margin:-4px 4px 12px">Also take front and side photos every Sunday in the same light. Photos show chest and belly changes that the scale misses.</p>
 
-  <details class="card"><summary>${I.scale}All entries (${ws.length + wa.length})${I.chev}</summary><div class="body hist">
-    ${ws.length + wa.length === 0 ? '<div class="small muted">Nothing logged yet.</div>' : ''}
+  <details class="card"><summary>${I.scale}All entries (${ws.length + S.waists.length + S.chests.length})${I.chev}</summary><div class="body hist">
+    ${ws.length + S.waists.length + S.chests.length === 0 ? '<div class="small muted">Nothing logged yet.</div>' : ''}
     ${[...ws].reverse().map(w => `<div class="row"><span class="grow">${fmtShort(w.d)}</span><b>${w.kg.toFixed(1)} kg</b><button class="icon-btn" style="border:0;background:none" data-act="delWeight" data-d="${w.d}" aria-label="Delete weight for ${fmtShort(w.d)}">${I.trash}</button></div>`).join('')}
-    ${[...wa].reverse().map(w => `<div class="row"><span class="grow">${fmtShort(w.d)} <span class="tiny muted">waist</span></span><b>${w.cm} cm</b><button class="icon-btn" style="border:0;background:none" data-act="delWaist" data-d="${w.d}" aria-label="Delete waist for ${fmtShort(w.d)}">${I.trash}</button></div>`).join('')}
+    ${Object.entries(MEAS).map(([m, cfg]) => sortedBy(S[cfg.arr]).reverse().map(w => `<div class="row"><span class="grow">${fmtShort(w.d)} <span class="tiny muted">${cfg.label.toLowerCase()}</span></span><b>${w.cm} cm</b><button class="icon-btn" style="border:0;background:none" data-act="delMeas" data-m="${m}" data-d="${w.d}" aria-label="Delete ${cfg.label.toLowerCase()} for ${fmtShort(w.d)}">${I.trash}</button></div>`).join('')).join('')}
   </div></details>
 
   <h2 class="sec">Your data</h2>
@@ -878,9 +1056,116 @@ function viewProgress() {
   </section>`;
 }
 
+/* ---------- COACH ---------- */
+const noteHtml = ([title, text]) => `<div class="cnote"><b>${esc(title)}</b><span>${esc(text)}</span></div>`;
+function coachNotes(k) {
+  const notes = [], p = planFor(k), y = addDays(k, -1), yd = S.days[y];
+  const [plo] = proteinRange();
+  if (!S.weights.length) notes.push(['Start here', 'Weigh yourself right after waking, before food or water, and log it in Progress. Your calorie targets adjust to your real weight.']);
+  if (p.type === 'gym') notes.push([`Workout ${workoutLetter(k)} today`, 'Eat the 5:00 PM chana, train around 5:30–7:00 PM, then the main meal at 7:30 PM. Lifting is your best natural testosterone booster.']);
+  else if (p.type === 'walk') notes.push(['Walk day', `${p.title}. Walking burns belly fat without making you much hungrier, and helps you recover for the next gym day.`]);
+  else notes.push(['Sunday check-in', 'Weigh in, measure waist and chest, take front and side photos, then read your weekly review in Progress.']);
+  if (yd && dayHasData(yd)) {
+    const mt = mealTotals(y);
+    if (mt.p && mt.p < plo - 20) notes.push(['Protein was low yesterday', `${mt.p} g against a ${plo} g target. Add 2 boiled eggs or the whey shake today. Protein keeps your muscle while the fat comes off.`]);
+    if (mt.kcal > kcalTarget(y) + 250) notes.push(['Went over yesterday', `${num(mt.kcal)} kcal against ${num(kcalTarget(y))}. Don’t starve today to make up for it; just get back on the plan.`]);
+    if (!yd.c.sleep) notes.push(['Protect your sleep', 'Seven hours wasn’t ticked yesterday. On night shifts, sleep is the biggest testosterone factor: dark room, eye mask, phone away by 7:30 AM.']);
+    if (yd.steps !== '' && +yd.steps < 8000) notes.push(['Steps were short', `${num(+yd.steps)} steps yesterday. Add a 15-minute walk on a break tonight.`]);
+    if (yd.water < 2000) notes.push(['Drink more water', `${(yd.water / 1000).toFixed(2)} L yesterday. Keep a 1.5 L bottle with you on shift and finish it twice.`]);
+    if (PLAN[dowOf(y)].type === 'gym' && !hasSession(yd)) notes.push(['Missed a workout?', 'No problem. Do it today or tomorrow. Three sessions a week is what counts.']);
+  }
+  const rv = review();
+  if (!rv.locked && rv.v) {
+    const msg = { keep: ['On track', 'Your weekly average dropped 0.5–1.2 kg. Keep doing exactly what you’re doing.'],
+      close: ['Nearly there', 'Weekly loss is a bit slow. Tighten portions at the mess and make sure you really hit 8,000 steps.'],
+      cut: ['Weight loss stalled', 'Less than 0.3 kg this week. Check steps first, then apply the −150 kcal change in Progress.'],
+      add: ['Losing too fast', 'More than 1.2 kg this week. Apply the +150 kcal change in Progress to protect muscle and testosterone.'] }[rv.v];
+    notes.push(msg);
+  }
+  notes.push(['Tip of the day', TIPS[((diffDays(EPOCH_MONDAY, k) % TIPS.length) + TIPS.length) % TIPS.length]]);
+  return notes;
+}
+function viewCoach() {
+  const pr = S.profile, e = energy(view), t = todayKey();
+  const [plo, phi] = proteinRange();
+  const bday = nextBirthday(t), weeksLeft = Math.max(1, diffDays(t, bday) / 7);
+  const toLose = Math.max(0, e.kg - pr.goalKg);
+  const needRate = toLose / weeksLeft;
+  const wk = weeklyAverages();
+  const measured = wk.length >= 2 ? (wk[0].avg - wk[wk.length - 1].avg) / (wk[wk.length - 1].i - wk[0].i) : null;
+  const projected = measured != null && measured > 0 ? Math.max(pr.goalKg, e.kg - measured * weeksLeft) : null;
+  const span = Math.max(0.1, pr.startKg - pr.goalKg);
+  const pct = Math.min(100, Math.max(0, (pr.startKg - e.kg) / span * 100));
+  const bmi = e.kg / Math.pow(pr.heightCm / 100, 2);
+  const d = day();
+  const habitsDone = HABITS.filter(h => d.h[h[0]]).length;
+  const adjTxt = pr.adj ? `Includes your ${pr.adj > 0 ? '+' : '−'}${Math.abs(pr.adj)} kcal weekly-review adjustment.` : '';
+
+  return `
+  <section class="card">
+    <div class="row"><span class="pill">${I.coach}Your coach</span></div>
+    <h3 style="margin-top:10px">${e.kg.toFixed(1)} kg → ${pr.goalKg} kg by your ${ageOn(bday)}th birthday</h3>
+    <div class="small muted">${fmtShort(bday)} ${parseKey(bday).getFullYear()} · ${Math.round(weeksLeft)} weeks left · needs about ${needRate.toFixed(1)} kg a week</div>
+    <div class="meter"><span style="width:${pct}%"></span></div>
+    <div class="kv muted"><span>Start ${pr.startKg} kg</span><span>${pct.toFixed(0)}% there</span><span>Goal ${pr.goalKg} kg</span></div>
+    ${projected != null ? `<div class="note">At your current pace of <b>${measured.toFixed(1)} kg a week</b> you’ll be about <b>${projected.toFixed(1)} kg</b> on your birthday.</div>`
+      : `<p class="tiny muted" style="margin:10px 0 0">Your projected birthday weight appears after two weeks of weigh-ins.</p>`}
+  </section>
+
+  <h2 class="sec">Today’s coaching</h2>
+  <section class="card coach-card">${coachNotes(view).map(noteHtml).join('')}</section>
+
+  <h2 class="sec">Hormone habits · ${habitsDone}/${HABITS.length}</h2>
+  <section class="card" style="padding-top:6px;padding-bottom:6px">
+    ${HABITS.map(([id, label, sub]) => checkbox(`data-habit="${id}"`, d.h[id], esc(label), esc(sub))).join('')}
+  </section>
+
+  <h2 class="sec">Your numbers</h2>
+  <section class="card">
+    <div class="stats">
+      <div class="stat"><span>Age · height</span><b>${e.age} · ${pr.heightCm} cm</b></div>
+      <div class="stat"><span>BMI</span><b>${bmi.toFixed(1)}</b></div>
+      <div class="stat"><span>Maintenance</span><b>${num(round50(e.tdee))} kcal</b></div>
+      <div class="stat"><span>Burned at rest</span><b>${num(round50(e.bmr))} kcal</b></div>
+      <div class="stat"><span>Gym-day target</span><b>${num(e.gym)} kcal</b></div>
+      <div class="stat"><span>Rest-day target</span><b>${num(e.rest)} kcal</b></div>
+      <div class="stat"><span>Protein</span><b>${plo}–${phi} g</b></div>
+      <div class="stat"><span>Fat, at least</span><b>60 g</b></div>
+    </div>
+    <p class="tiny muted" style="margin:10px 0 0">Targets are worked out from your age, height and last 7 weigh-ins, and drop slightly as you get lighter. They never go below 1,700 kcal on gym days, to protect testosterone and muscle. ${adjTxt}</p>
+    ${pr.adj ? `<button class="btn sm ghost" style="margin-top:6px" data-act="undoAdj">Undo last adjustment</button>` : ''}
+  </section>
+
+  <h2 class="sec">Your focus areas</h2>
+  ${FOCUS.map(f => `<details class="card"><summary>${I[f.icon]}${f.title}${I.chev}</summary><div class="body">
+    <ul class="plain-list">${f.points.map(x => `<li>${x}</li>`).join('')}</ul>
+    <div class="note">${f.track}</div>
+  </div></details>`).join('')}
+
+  <details class="card"><summary>${I.pill}Supplements: what’s worth it${I.chev}</summary><div class="body">
+    ${SUPPS.map(([t, s]) => `<div class="swap"><b>${t}</b><span class="small muted">${s}</span></div>`).join('')}
+  </div></details>
+  <details class="card"><summary>${I.info}When to see a doctor${I.chev}</summary><div class="body">
+    <ul class="plain-list">${DOCTOR.map(x => `<li>${x}</li>`).join('')}</ul>
+  </div></details>
+
+  <h2 class="sec">Your profile</h2>
+  <section class="card">
+    <div class="form" style="grid-template-columns:1fr 1fr">
+      <label><span>Birthday</span><input class="field" id="pDob" type="date" value="${pr.dob}" style="padding:0 8px;font-size:16px"></label>
+      <label><span>Height (cm)</span><input class="field" id="pH" type="number" inputmode="numeric" min="140" max="220" value="${pr.heightCm}"></label>
+      <label><span>Starting weight (kg)</span><input class="field" id="pStart" type="number" inputmode="decimal" step="0.1" value="${pr.startKg}"></label>
+      <label><span>Goal weight (kg)</span><input class="field" id="pGoal" type="number" inputmode="decimal" step="0.5" value="${pr.goalKg}"></label>
+    </div>
+    <button class="btn primary block" style="margin-top:10px" data-act="saveProfile">Save profile</button>
+    <p class="tiny muted" style="margin:10px 0 0">This is general fitness guidance, not medical advice. Check with a doctor before starting if you have any health condition.</p>
+  </section>`;
+}
+
 /* ---------- Export ---------- */
 function dayHasData(d) {
   return d && (d.water || d.steps || Object.values(d.c || {}).some(Boolean) || Object.values(d.meals || {}).some(Boolean) ||
+    Object.values(d.h || {}).some(Boolean) ||
     (d.extra && d.extra.length) || Object.values(d.x || {}).some(Boolean) ||
     Object.values(d.wo || {}).some(r => r.s.some(s => s.d || s.w || s.r)));
 }
@@ -889,6 +1174,9 @@ function exportText() {
   L.push('WEEK 1 FAT-LOSS TRACKER: EXPORT');
   L.push(`Exported: ${new Date().toLocaleString()}`);
   L.push(`Plan start: ${fmtShort(S.start)} (${S.start})`);
+  const e = energy(todayKey());
+  L.push(`Profile: age ${e.age}, ${S.profile.heightCm} cm, start ${S.profile.startKg} kg, goal ${S.profile.goalKg} kg`);
+  L.push(`Targets: gym day ${e.gym} kcal, rest day ${e.rest} kcal, protein ${proteinRange().join('–')} g${S.profile.adj ? `, adjustment ${S.profile.adj > 0 ? '+' : ''}${S.profile.adj} kcal` : ''}`);
   L.push('');
   L.push('WEIGHT (kg, on waking)');
   if (!ws.length) L.push('  none');
@@ -904,6 +1192,11 @@ function exportText() {
   if (!wa.length) L.push('  none');
   wa.forEach(w => L.push(`  ${w.d}  ${w.cm}`));
   L.push('');
+  L.push('CHEST (cm, at nipple level)');
+  const ch = sortedBy(S.chests);
+  if (!ch.length) L.push('  none');
+  ch.forEach(w => L.push(`  ${w.d}  ${w.cm}`));
+  L.push('');
   L.push('DAILY LOG');
   const keys = Object.keys(S.days).sort().filter(k => dayHasData(S.days[k]));
   if (!keys.length) L.push('  none');
@@ -914,15 +1207,17 @@ function exportText() {
     L.push(`${k} ${fmtShort(k)} · ${p.label}: ${p.title}`);
     L.push(`  Checklist ${ticked.length}/${list.length}${ticked.length ? ': ' + ticked.map(c => c[1]).join('; ') : ''}`);
     L.push(`  Water ${(d.water / 1000).toFixed(2)} L · Steps ${d.steps ? num(+d.steps) : '-'}`);
-    L.push(`  Food ${num(mt.kcal)} kcal / ${mt.p} g protein (target ${num(kcalTarget(k))} kcal / ${PROTEIN_TARGET} g)`);
+    L.push(`  Food ${num(mt.kcal)} kcal / ${mt.p} g protein (target ${num(kcalTarget(k))} kcal / ${proteinRange()[0]} g)`);
+    const hb = HABITS.filter(h => d.h[h[0]]);
+    if (hb.length) L.push(`  Hormone habits ${hb.length}/${HABITS.length}: ${hb.map(h => h[1]).join('; ')}`);
     const eaten = MEALS.filter(m => d.meals[m.id]).map(m => m.time);
     if (eaten.length) L.push(`  Meals eaten: ${eaten.join(', ')}`);
     d.extra.forEach(e => L.push(`  Extra: ${e.name || 'Extra'} ${e.kcal || 0} kcal / ${e.p || 0} g`));
     if (d.x.warm || d.x.fin) L.push(`  ${d.x.warm ? 'Warm-up ✓ ' : ''}${d.x.fin ? 'Incline walk ✓' : ''}`.trimEnd());
-    EX.forEach(ex => {
+    ALL_EX.forEach(ex => {
       const r = d.wo[ex.id];
       if (!r || !r.s.some(s => s.d || s.w || s.r)) return;
-      const sets = r.s.map(s => `${ex.noWeight ? (s.r || '-') + 's' : (s.w || '-') + 'x' + (s.r || '-')}${s.d ? ' ✓' : ''}`).join(', ');
+      const sets = r.s.map(s => `${ex.noWeight ? (s.r || '-') + (ex.unit === 'sec' ? 's' : ' reps') : (s.w || '-') + 'x' + (s.r || '-')}${s.d ? ' ✓' : ''}`).join(', ');
       L.push(`  ${ex.name}${ex.perDb ? ' (kg per dumbbell)' : ''}: ${sets}${r.easy ? ' (felt easy)' : ''}`);
     });
   });
@@ -1015,14 +1310,36 @@ const actions = {
     save(); render(); toast(`Saved ${r1(kg).toFixed(1)} kg for ${fmtShort(d)}`);
   },
   delWeight(el) { S.weights = S.weights.filter(w => w.d !== el.dataset.d); save(); render(); },
-  addWaist() {
-    const d = $('#cDate').value, cm = parseFloat($('#cCm').value);
+  addMeas(el) {
+    const m = el.dataset.m, cfg = MEAS[m];
+    const d = $(`#m-${m}-date`).value, cm = parseFloat($(`#m-${m}-cm`).value);
     if (!d || d > todayKey()) { toast('Pick a valid date'); return; }
-    if (!(cm >= 40 && cm <= 200)) { toast('Enter a waist between 40 and 200 cm'); return; }
-    upsert(S.waists, d, { d, cm: Math.round(cm * 2) / 2 });
-    save(); render(); toast(`Saved ${cm} cm for ${fmtShort(d)}`);
+    if (!(cm >= 40 && cm <= 200)) { toast(`Enter a ${cfg.label.toLowerCase()} between 40 and 200 cm`); return; }
+    upsert(S[cfg.arr], d, { d, cm: Math.round(cm * 2) / 2 });
+    save(); render(); toast(`Saved ${cfg.label.toLowerCase()} ${cm} cm for ${fmtShort(d)}`);
   },
-  delWaist(el) { S.waists = S.waists.filter(w => w.d !== el.dataset.d); save(); render(); },
+  delMeas(el) { const a = MEAS[el.dataset.m].arr; S[a] = S[a].filter(w => w.d !== el.dataset.d); save(); render(); },
+  setWt(el) { day().wt = el.dataset.v; save(); render(); },
+  applyAdj(el) {
+    const delta = +el.dataset.v;
+    S.profile.adj = (S.profile.adj || 0) + delta;
+    S.profile.adjLog.push({ d: todayKey(), week: weekIdx(), delta });
+    save(); render(); toast(`Targets ${delta > 0 ? 'raised' : 'lowered'} by 150 kcal`);
+  },
+  undoAdj() {
+    const last = S.profile.adjLog.pop();
+    S.profile.adj = last ? S.profile.adj - last.delta : 0;
+    save(); render(); toast('Adjustment undone');
+  },
+  saveProfile() {
+    const dob = $('#pDob').value, h = +$('#pH').value, st = parseFloat($('#pStart').value), g = parseFloat($('#pGoal').value);
+    if (!dob || dob > todayKey()) { toast('Pick a valid birthday'); return; }
+    if (!(h >= 140 && h <= 220)) { toast('Height should be 140–220 cm'); return; }
+    if (!(st >= 40 && st <= 250) || !(g >= 40 && g <= 250)) { toast('Weights should be 40–250 kg'); return; }
+    if (g >= st) { toast('Goal should be below your starting weight'); return; }
+    Object.assign(S.profile, { dob, heightCm: h, startKg: r1(st), goalKg: Math.round(g * 2) / 2 });
+    save(); render(); toast('Profile saved. Targets updated.');
+  },
   export() {
     openModal(`<h3>Export data</h3>
       <p class="small muted" style="margin:0 0 10px">A readable summary followed by a full JSON backup.</p>
@@ -1044,12 +1361,12 @@ const actions = {
   },
   reset() {
     openModal(`<h3>Delete all data?</h3>
-      <p class="small muted" style="margin:0">This removes every weight, waist, meal, workout and checklist entry from this phone. It cannot be undone. Export first if you want a backup.</p>
+      <p class="small muted" style="margin:0">This removes every weight, waist, chest, meal, workout and checklist entry from this phone, and any calorie adjustments. Your profile is kept. It cannot be undone. Export first if you want a backup.</p>
       <div class="acts"><button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" style="background:var(--danger);color:#fff" data-act="confirmReset">Delete all</button></div>`);
   },
   confirmReset() {
-    const theme = S.settings.theme;
-    S = fresh(); S.settings.theme = theme; S.settings.tab = 'today';
+    const theme = S.settings.theme, profile = { ...S.profile, adj: 0, adjLog: [] };
+    S = fresh(); S.settings.theme = theme; S.settings.tab = 'today'; S.profile = profile;
     save(); hideTimer(); closeModal(); view = todayKey(); render(); scrollTo(0, 0); toast('All data deleted');
   },
   closeModal,
@@ -1075,18 +1392,23 @@ document.addEventListener('change', e => {
     day().c[ds.check] = t.checked; save();
     if (S.settings.tab === 'today') refreshTodayLive(); else render();
   } else if (ds.set) {
-    const [id, j] = ds.set.split(':'), ex = EX.find(x => x.id === id);
+    const [id, j] = ds.set.split(':'), ex = exById(id);
     const before = setCounts(view);
     exRec(view, ex).s[+j].d = t.checked;
     t.closest('.setrow').classList.toggle('done', t.checked);
     const after = setCounts(view);
     if (after.done === after.total && before.done < before.total && planFor(view).type === 'gym') {
-      day().c.activity = true; toast('Workout A complete. Finish with the incline walk.');
+      day().c.activity = true; toast(`Workout ${workoutLetter(view)} complete. Finish with the incline walk.`);
     }
     save(); refreshWorkoutProgress();
     if (t.checked && view === todayKey()) startTimer();
   } else if (ds.easy) {
-    exRec(view, EX.find(x => x.id === ds.easy)).easy = t.checked; save();
+    exRec(view, exById(ds.easy)).easy = t.checked; save();
+  } else if (ds.habit) {
+    day().h[ds.habit] = t.checked; save();
+    const n = HABITS.filter(h => day().h[h[0]]).length;
+    const hd = [...document.querySelectorAll('h2.sec')].find(x => x.textContent.startsWith('Hormone habits'));
+    if (hd) hd.textContent = `Hormone habits · ${n}/${HABITS.length}`;
   } else if (ds.x) {
     day().x[ds.x] = t.checked; save();
   } else if (ds.meal) {
@@ -1097,7 +1419,7 @@ document.addEventListener('change', e => {
 document.addEventListener('input', e => {
   const t = e.target, ds = t.dataset;
   if (ds.setw || ds.setr) {
-    const [id, j] = (ds.setw || ds.setr).split(':'), ex = EX.find(x => x.id === id);
+    const [id, j] = (ds.setw || ds.setr).split(':'), ex = exById(id);
     exRec(view, ex).s[+j][ds.setw ? 'w' : 'r'] = t.value.slice(0, 6);
     save();
   } else if ('steps' in ds) {
